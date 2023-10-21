@@ -1,0 +1,191 @@
+---
+title: "Dplyr and Tidyr lab"
+author: Daniel Rohrbach
+format: html
+editor: visual
+echo: false
+message: false
+warning: false
+---
+
+```{r}
+here::i_am("Lab101023.Rproj")
+library(here)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+## Exercise 1
+
+Analyzing Spotify's 2010-2019 Top Songs dataset to identify musical trends.
+
+```{r}
+spotify <- readRDS("top-spotify-hits-2000-2019.Rds")
+```
+
+## Question 1
+
+```{r}
+unique_song <- spotify |> 
+  distinct(song) |>
+  summarise(n())
+
+unique_artist <- spotify |> 
+  distinct(artist) |>
+  summarise(n())
+
+unique_genre <- spotify |> 
+  distinct(genre) |>
+  summarise(n())
+```
+
+The dataset contains `r unique_song` songs from `r unique_artist` different artists and `r unique_genre` genres.
+
+## Question 2
+
+```{r}
+songs_per_year <- spotify |>
+  group_by(year) |>
+  summarise(num_songs = n())
+```
+
+```{r}
+knitr::kable(songs_per_year, 
+             caption = "Number of songs per year",
+             align = 'c')
+```
+
+## Question 3
+
+```{r}
+most_popular_artist <- spotify |> 
+  distinct(artist, song) |> 
+  group_by(artist) |> 
+  summarise(num_songs = n()) |> 
+  slice_max(num_songs)
+```
+
+```{r}
+artist_name <- most_popular_artist$artist[1]
+song_count <- most_popular_artist$num_songs[1]
+```
+
+The most popular artist in the dataset is `r artist_name` with `r song_count` distinct songs.
+
+## Question 4
+
+```{r}
+genre_stats <- spotify |> 
+  distinct(song, .keep_all = TRUE) |>
+  group_by(genre) |>  
+  summarise(
+    min_tempo = min(tempo),
+    max_tempo = max(tempo),
+    mean_tempo = mean(tempo),
+    median_tempo = median(tempo),
+    num_songs = n()
+  ) |>
+  mutate(across(c(min_tempo, max_tempo, mean_tempo, median_tempo), round, digits = 1)) |>
+  arrange(genre)
+```
+
+```{r}
+knitr::kable(genre_stats, 
+             caption = "Statistics of Tempo by Musical Genre",
+             align = 'c')
+```
+
+## Question 5
+
+```{r}
+medians_per_year <- spotify |> 
+  group_by(year) |> 
+  summarise(
+    median_energy = median(energy),
+    median_danceability = median(danceability)
+  )|>
+  mutate(across(c(median_energy, median_danceability), round, digits = 3))
+
+knitr::kable(medians_per_year, 
+      caption = "Median Energy and Danceability Per Year", 
+      align = 'c')
+```
+
+## Question 6
+
+```{r}
+ggplot(medians_per_year, aes(x = year)) +
+  geom_line(aes(y = median_energy, color = "Energy")) +
+  geom_line(aes(y = median_danceability, color = "Danceability")) +
+  labs(
+    title = "Temporal evolution of median annual Energy and Danceability",
+    y = "Median Annual Energy/Danceability",
+    x = "Year",
+    color= "Characteristic"
+  ) +
+  theme_light()
+```
+
+## Exercise 2
+
+```{r}
+dropout <- readRDS("dropout.Rds")
+```
+
+Exercise 2 analyzes the UCI students' dropout dataset.
+
+## Question 1
+
+```{r}
+medians <- dropout |> 
+  group_by(Gender, `Marital status`) |> 
+  summarise(median_age = median(`Age at enrollment`, na.rm = TRUE)) |> 
+  ungroup()
+knitr::kable(medians, 
+      caption = "Median Age at Enrollment by Gender and Marital Status", 
+      col.names = c("Gender", "Marital Status", "Median Age"),
+      align = c('l', 'l', 'c'))
+```
+
+## Question 2
+
+```{r}
+reshaped_data <- medians |>
+  pivot_wider(names_from = Gender, values_from = median_age)
+knitr::kable(reshaped_data, 
+      caption = "Median Age at Enrollment by Marital Status and Gender - reshaped", 
+      col.names = c("Marital Status", "Female", "Male"),
+      align = c('l', 'c', 'c'))
+```
+
+In Question 2, the medians from Question 1 were transformed using the pivot function, reorganizing data with "Marital Status" as rows and distinct "Gender" as columns for a streamlined table representation.
+
+## Question 3
+
+```{r}
+result <- dropout |>
+  group_by(Target) |>
+  summarise(across(starts_with("Curricular units"), \(x) mean(x, na.rm = TRUE))) |>
+mutate(across(starts_with("Curricular units"), round, digits = 2))
+knitr::kable(result, caption = "Conditional Mean of Curricular Units Given Target Variable")
+```
+
+## Question 4
+
+```{r}
+conditional_means <- dropout |> 
+  group_by(Target) |> 
+  summarise(across(starts_with("Curricular units"), \(x) mean(x, na.rm = TRUE))) |>
+mutate(across(starts_with("Curricular units"), round, digits = 2))
+
+
+reshaped_data <- conditional_means |> 
+  pivot_longer(cols = starts_with("Curricular units"), 
+               names_to = "Units", 
+               values_to = "Value") |> 
+  pivot_wider(names_from = Target, values_from = Value)
+knitr::kable(reshaped_data, caption = "Conditional Mean of Curricular Units Given Target Variable - reshaped")
+```
+
+In Question 4, the means from Question 3 were reshaped using the pivot functions, presenting Curricular Units as rows and Target variables as columns, creating a more compact table format.
